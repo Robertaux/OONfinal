@@ -105,12 +105,14 @@ class Lightpath(Signal_information):
 
     @property
     def isnr(self):
-        return self._channel
+        return self._isnr
 
     def isnr_l(self, line):
-        isnr=line.compute_gain()
+        isnr=line.compute_gain(lightpath=self)
         self._isnr += isnr
-        return isnr
+        #print("isnr in isnr_L",isnr)
+        #print("self",self._isnr)
+        #return isnr
 
     def final_gsnr(self, line):
         gsnr_db = 10 * math.log10(1 / self.isnr_l(line))
@@ -293,7 +295,7 @@ class Line(object):
         PI = np.pi
         Nspan = self._n_amplifiers - 1
         Bn = 12.5e9
-        Leff = (1 - np.exp(-2 * self._alpha * self._distance)) / (2 * self._alpha)
+        Leff = 1 / (2 * self._alpha)
         eta_nli = (16 / (27 * PI)) * np.log( ((PI ** 2) * self._beta2_abs * (lightpath.Rs ** 2) * self._channels_numb ** (2 * (lightpath.Rs) / lightpath.df)) / (2 * self._alpha)) * ((self._alpha * (self._gamma * Leff) ** 2) / (self._beta2_abs * lightpath.Rs ** 3))
         logdeln=np.log( ((PI ** 2) * self._beta2_abs * (lightpath.Rs ** 2) * self._channels_numb ** (2 * (lightpath.Rs) / lightpath.df)) / (2 * self._alpha))
         nli = (lightpath.signal_power) ** 3 * eta_nli * Nspan * Bn
@@ -321,13 +323,15 @@ class Line(object):
         ase=self.ase_generation()
         nli, eta_nli=self.nli_generation(lightpath)
         optimal_power = (ase / (2 * eta_nli * (self._n_amplifiers - 1) * self._Bn))
+        #print("optimal power",math.pow(optimal_power, 1/3))
         return math.pow(optimal_power, 1/3)
 
     def compute_gain(self, lightpath):
         power_signal = lightpath.signal_power
-        power_noise = lightpath.noise_power
+        power_noise = self.noise_generation_l(lightpath)
         gsnr = power_signal / power_noise
         isnr = 1 / gsnr
+        #print(f"isnr",isnr)
         return isnr
 
     def get_state(self, channel):
@@ -369,11 +373,13 @@ class Line(object):
         nli,eta_nli = self.nli_generation(lightpath)
         xt = self.crosstalk_generation(lightpath)
         noise_power = ase + nli + xt
+        #print("noise power",noise_power)
         return noise_power
 
     def propagate_lightpath(self, lightpath):
         if 0<=lightpath.channel<len(self._state):
-            lightpath.update_noise_power(self.noise_generation_l(lightpath))
+            #lightpath.update_noise_power(self.noise_generation_l(lightpath))
+            lightpath.isnr_l(line=self)
             lightpath.update_latency(self.latency_generation())
             if lightpath.path and lightpath.path[0] in self._successive:
                 self.state_occupied(lightpath.channel)
@@ -615,13 +621,14 @@ class Network:
                 if len(best_path) < 3:
 
                     ltph = Lightpath(con.signal_power, list(best_path), best_channel)
+                    self.propagate_lightpath(ltph)
                     bit_rate = self.calculate_bit_rate_l(transceiver_strategy, ltph)
                     print(f"Bit Rate: {bit_rate}")
                     if bit_rate > 0:
-                        self.propagate_lightpath(ltph)
-                        if label == "snr": con.snr = best_snr
+
+                        if label == "snr": con.snr = lin2db(1 / ltph.isnr)
                         if label == "latency": con.latency = best_latency
-                        best_snrs.append(lin2db(ltph.signal_power/ltph.noise_power))
+                        best_snrs.append(lin2db(1/ltph.isnr))
                         best_latencies.append(ltph.latency)
                         best_paths.append(best_path)
                         best_bit_rates.append(bit_rate)
@@ -640,51 +647,62 @@ class Network:
 
                 elif len(best_path) > 2:
 
-                    ltph = Lightpath(con.signal_power, list(best_path), best_channel)
-                    bit_rate = self.calculate_bit_rate_l(transceiver_strategy, ltph)
-                    print(f"Bit Rate: {bit_rate}")
-                    if bit_rate > 0:
-                        middle_path_nodes = best_path[source_index + 1:dest_index]
-                        mult_result = self.route_space_update(label, middle_path_nodes, best_channel, best_path,line_labels)
-
+                    middle_path_nodes = best_path[source_index + 1:dest_index]
+                    flag_ch = False
+                    ch = 0
+                    for ch in range(best_channel, 10):
+                        mult_result = self.route_space_update(label, middle_path_nodes, ch, best_path, line_labels)
                         if mult_result == 1:
+                            flag_ch = True
+                            break
 
-                            self.propagate_lightpath(ltph)
+                    if flag_ch:
+
+                        ltph = Lightpath(con.signal_power, list(best_path), best_channel)
+                        self.propagate_lightpath(ltph)
+                        bit_rate = self.calculate_bit_rate_l(transceiver_strategy, ltph)
+                        # print(f"Bit Rate: {bit_rate}")
+                        if bit_rate > 0:
                             best_paths.append(best_path)
                             best_bit_rates.append(bit_rate)
                             con.bit_rate = bit_rate
-                            #self.print_lines_occupy(line_labels, best_channel)
-                            if label == "snr": con.snr = best_snr
-                            if label == "latency": con.latency = best_latency
+                            con.latency = best_latency
+                            con.snr = lin2db(1 / ltph.isnr)
+                            # self.print_lines_occupy(line_labels, best_channel)
                             con.set_channel(best_channel)
-                            best_snrs.append(lin2db(ltph.signal_power/ltph.noise_power))
+                            best_snrs.append(lin2db(1 / ltph.isnr))
                             best_latencies.append(ltph.latency)
 
-                        elif mult_result == 0:
-                            for line_label in line_labels:
-                                line = self.lines[line_label]
-                                print(f"Line: {line_label}")
-                                state_channels = line.get_states()
-                                print(f"Best channel {best_channel}: {state_channels}")
-                            print("Occupied: path not available.\n")
+                            best_path_lines = ['->'.join(line[i:i + 2]) for line in line_labels for i in
+                                               range(len(line) - 1)]
+                            self.route_space_occupy(label, best_path_lines, ch)
+                        else:
+                            # print("Bit rate not right.\n")
                             best_snrs.append(0.0)
                             best_latencies.append(0.0)
                             best_paths.append(best_path)
                             best_bit_rates.append(0.0)
-                        else:
-                            print("Wrong multiplication.\n")
+
                     else:
-                        print("Bit rate not right.\n")
+
+                        for line_label in line_labels:
+                            line = self.lines[line_label]
+                            # print(f"Line: {line_label}")
+                            state_channels = line.get_states()
+                            # print(f"Best channel {best_channel}: {state_channels}")
+                            # print("Occupied: path not available.\n")
                         best_snrs.append(0.0)
                         best_latencies.append(0.0)
                         best_paths.append(best_path)
                         best_bit_rates.append(0.0)
+
                 else:
-                    print("Best path length not good.\n")
+                    # print("Best path length not good.\n")
                     best_snrs.append(0.0)
                     best_latencies.append(0.0)
                     best_paths.append(best_path)
                     best_bit_rates.append(0.0)
+
             else:
                 print("Best path not found.\n")
                 best_snrs.append(0.0)
@@ -725,19 +743,20 @@ class Network:
             line_labels = [source + destination for source, destination in zip(best_path, best_path[1:])]
 
             if len(best_path) < 3:
-
                 ltph = Lightpath(con.signal_power, list(best_path), best_channel)
+                self.propagate_lightpath(ltph)
                 bit_rate = self.calculate_bit_rate_l(transceiver_strategy, ltph)
                 #print(f"Bit Rate: {bit_rate}")
+
                 if bit_rate > 0:
-                    self.propagate_lightpath(ltph)
-                    best_snrs.append(lin2db(ltph.signal_power / ltph.noise_power))
+
+                    best_snrs.append(lin2db(1/ltph.isnr))
                     best_latencies.append(ltph.latency)
                     best_paths.append(best_path)
                     best_bit_rates.append(bit_rate)
                     con.bit_rate = bit_rate
                     con.latency = best_latency
-                    con.snr = best_snr
+                    con.snr = lin2db(1 / ltph.isnr)
                     # self.print_lines_occupy(line_labels, best_channel)
                     best_path_lines = ['->'.join(line[i:i + 2]) for line in line_labels for i in
                                        range(len(line) - 1)]
@@ -752,51 +771,50 @@ class Network:
 
             elif len(best_path) > 2:
 
-                ltph = Lightpath(con.signal_power, list(best_path), best_channel)
-                bit_rate = self.calculate_bit_rate_l(transceiver_strategy, ltph)
-                #print(f"Bit Rate: {bit_rate}")
-                if bit_rate > 0:
+                middle_path_nodes = best_path[source_index + 1:dest_index]
+                flag_ch = False
+                ch = 0
+                for ch in range(best_channel, 10):
+                    mult_result = self.route_space_update(label, middle_path_nodes, ch, best_path, line_labels)
+                    if mult_result == 1:
+                        flag_ch = True
+                        break
 
-                    middle_path_nodes = best_path[source_index + 1:dest_index]
-                    flag_ch=False
-                    ch=0
-                    for ch in range(best_channel, 10):
-                        mult_result = self.route_space_update(label, middle_path_nodes, ch, best_path, line_labels)
-                        if mult_result == 1:
-                            flag_ch = True
-                            break
+                if flag_ch:
 
-                    if flag_ch:
-
-                        self.propagate_lightpath(ltph)
+                    ltph = Lightpath(con.signal_power, list(best_path), best_channel)
+                    self.propagate_lightpath(ltph)
+                    bit_rate = self.calculate_bit_rate_l(transceiver_strategy, ltph)
+                    # print(f"Bit Rate: {bit_rate}")
+                    if bit_rate > 0:
                         best_paths.append(best_path)
                         best_bit_rates.append(bit_rate)
                         con.bit_rate = bit_rate
                         con.latency = best_latency
-                        con.snr = best_snr
+                        con.snr = lin2db(1 / ltph.isnr)
                         # self.print_lines_occupy(line_labels, best_channel)
                         con.set_channel(best_channel)
-                        best_snrs.append(lin2db(ltph.signal_power / ltph.noise_power))
+                        best_snrs.append(lin2db(1 / ltph.isnr))
                         best_latencies.append(ltph.latency)
 
-                        best_path_lines = ['->'.join(line[i:i + 2]) for line in line_labels for i in range(len(line) - 1)]
+                        best_path_lines = ['->'.join(line[i:i + 2]) for line in line_labels for i in
+                                           range(len(line) - 1)]
                         self.route_space_occupy(label, best_path_lines, ch)
-
                     else:
-
-                        for line_label in line_labels:
-                            line = self.lines[line_label]
-                            # print(f"Line: {line_label}")
-                            state_channels = line.get_states()
-                            # print(f"Best channel {best_channel}: {state_channels}")
-                            # print("Occupied: path not available.\n")
+                        # print("Bit rate not right.\n")
                         best_snrs.append(0.0)
                         best_latencies.append(0.0)
                         best_paths.append(best_path)
                         best_bit_rates.append(0.0)
-
                 else:
-                    #print("Bit rate not right.\n")
+
+                    for line_label in line_labels:
+                        line = self.lines[line_label]
+                        # print(f"Line: {line_label}")
+                        state_channels = line.get_states()
+                        # print(f"Best channel {best_channel}: {state_channels}")
+                        # print("Occupied: path not available.\n")
+
                     best_snrs.append(0.0)
                     best_latencies.append(0.0)
                     best_paths.append(best_path)
@@ -824,8 +842,8 @@ class Network:
             for line_label in line_labels:
                 line = self.lines[line_label]
                 state_channels = line.get_states()
-                print(f"Line: {line_label}")
-                print(f"Best channel {best_channel}: {state_channels} occupied.")
+                #print(f"Line: {line_label}")
+                #print(f"Best channel {best_channel}: {state_channels} occupied.")
                 line.state_occupied(best_channel)
 
     def route_space(self):
@@ -918,12 +936,13 @@ class Network:
         th_200 = (14 / 3) * (erfcinv(BERt*3/2))**2 * Rs/Bn
         th_400 = 10 * (erfcinv( BERt*8/3))**2 * Rs/Bn
 
-        dataframe_obj = self._weighted_paths
+        #dataframe_obj = self._weighted_paths
         #print("Searching for path:", "->".join(path))
         #print("Available paths:", dataframe_obj['Path'].unique())
 
-        GSNR = dataframe_obj[dataframe_obj['Path'] == "->".join(path)]['SNR (dB)'].values[0]
-        GSNR = db2lin(GSNR)
+        #GSNR = dataframe_obj[dataframe_obj['Path'] == "->".join(path)]['SNR (dB)'].values[0]
+        #print("final isnr",lightpath.isnr)
+        GSNR = 1/lightpath.isnr
         #print("GSNR:", GSNR, "\n")
 
         if tranceiver_strategy == 'fixed-rate': #PM-QPSK

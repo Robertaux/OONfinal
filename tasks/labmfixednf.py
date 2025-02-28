@@ -1,4 +1,5 @@
 from pathlib import Path
+import numpy as np
 from core.elements import *
 import random
 import os
@@ -164,8 +165,8 @@ if __name__ == '__main__':
             axes1[i, 0].grid(True)
 
             axes1[i, 1].hist(df_snrs_z['SNR'], bins=15, color='cyan', alpha=1)
-            axes1[i, 1].set_title(f'Distribution of SNRs for {strategy}')
-            axes1[i, 1].set_xlabel('SNR Value (dB)')
+            axes1[i, 1].set_title(f'Distribution of GSNRs for {strategy}')
+            axes1[i, 1].set_xlabel('GSNR Value (dB)')
             axes1[i, 1].set_ylabel('Frequency')
             axes1[i, 1].grid(True)
 
@@ -175,7 +176,7 @@ if __name__ == '__main__':
             axes1[i, 2].set_ylabel('Frequency')
             axes1[i, 2].grid(True)
 
-        fig1.suptitle(f'Distribution of Latencies, SNRs, and Bit Rates for Best SNR (Iteration {iteration})',
+        fig1.suptitle(f'Distribution of Latencies, GSNRs, and Bit Rates for Best SNR (Iteration {iteration})',
                       fontsize=19)
         fig1.tight_layout(rect=[0, 0.03, 1, 0.95])
         plt.savefig(os.path.join(OUTPUT_FOLDER, f'distribution_snr_iter_{iteration}.png'))
@@ -200,8 +201,8 @@ if __name__ == '__main__':
             axes2[i, 0].grid(True)
 
             axes2[i, 1].hist(df_snrs_z_l['SNR'], bins=15, color='cyan', alpha=1)
-            axes2[i, 1].set_title(f'Distribution of SNRs for {strategy}')
-            axes2[i, 1].set_xlabel('SNR Value (dB)')
+            axes2[i, 1].set_title(f'Distribution of GSNRs for {strategy}')
+            axes2[i, 1].set_xlabel('GSNR Value (dB)')
             axes2[i, 1].set_ylabel('Frequency')
             axes2[i, 1].grid(True)
 
@@ -211,15 +212,15 @@ if __name__ == '__main__':
             axes2[i, 2].set_ylabel('Frequency')
             axes2[i, 2].grid(True)
 
-        fig2.suptitle(f'Distribution of Latencies, SNRs, and Bit Rates for Best Latency (Iteration {iteration})', fontsize=19)
+        fig2.suptitle(f'Distribution of Latencies, GSNRs, and Bit Rates for Best Latency (Iteration {iteration})', fontsize=19)
         fig2.tight_layout(rect=[0, 0.03, 1, 0.95])
         plt.savefig(os.path.join(OUTPUT_FOLDER, f'distribution_latency_iter_{iteration}.png'))
         plt.close(fig2)
 
-        print_subplot(OUTPUT_FOLDER, transceiver_strategies, 'latency', gsnr_min, gsnr_avg, gsnr_max, 'SNR', '(dB)')
+        print_subplotg(OUTPUT_FOLDER, transceiver_strategies, 'latency', gsnr_min, gsnr_avg, gsnr_max, 'SNR', '(dB)')
         print_subplot(OUTPUT_FOLDER, transceiver_strategies, 'latency', latency_min, latency_avg, latency_max, 'Latency', '(ms)')
         print_subplot_c(OUTPUT_FOLDER, transceiver_strategies, 'latency', capacity_min, capacity_avg, capacity_max, 'Bit Rate', capacity_total)
-        print_subplot(OUTPUT_FOLDER, transceiver_strategies, 'snr', gsnr_min, gsnr_avg, gsnr_max, 'SNR', '(dB)')
+        print_subplotg(OUTPUT_FOLDER, transceiver_strategies, 'snr', gsnr_min, gsnr_avg, gsnr_max, 'SNR', '(dB)')
         print_subplot(OUTPUT_FOLDER, transceiver_strategies, 'snr', latency_min, latency_avg, latency_max, 'Latency', '(ms)')
         print_subplot_c(OUTPUT_FOLDER, transceiver_strategies, 'snr', capacity_min, capacity_avg, capacity_max, 'Bit Rate', capacity_total)
 

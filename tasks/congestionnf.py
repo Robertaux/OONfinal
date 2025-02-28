@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import numpy as np
 
 from core.elements import *
@@ -7,6 +5,7 @@ import random
 import os
 import math
 from core.utils import *
+from pathlib import Path
 
 ROOT_DIR=Path(__file__).parent.parent
 DATA_FOLDER=ROOT_DIR/'resources'
@@ -25,7 +24,7 @@ if __name__ == '__main__':
     transceiver_strategies = ['fixed-rate', 'flex-rate', 'shannon']
     num_iterations = 30
 
-    M=list(range(1,32))
+    M=list(range(1,38))
 
     #M = list(range(1, 38, 3))
 
@@ -172,24 +171,24 @@ if __name__ == '__main__':
                     valori = [v for iteration in iterazioni for v in iteration if isinstance(v, (int, float))]
                     medie_datas[metrica][strategy][path].append(np.mean(valori) if valori else None)
 
-    plot_value_trends(OUTPUT_FOLDER, transceiver_strategies, 'latency', medie_datas["latency_min"], medie_datas["latency_avg"], medie_datas["latency_max"],"Latency")
-    plot_value_trends(OUTPUT_FOLDER, transceiver_strategies, 'snr', medie_datas["latency_min"], medie_datas["latency_avg"], medie_datas["latency_max"], "Latency")
+    plot_value_trends(OUTPUT_FOLDER, transceiver_strategies, 'latency', medie_datas["latency_min"], medie_datas["latency_avg"], medie_datas["latency_max"],"Latency", "ms")
+    plot_value_trends(OUTPUT_FOLDER, transceiver_strategies, 'snr', medie_datas["latency_min"], medie_datas["latency_avg"], medie_datas["latency_max"], "Latency", "ms")
     #plot_value_trends_c(OUTPUT_FOLDER, transceiver_strategies, 'latency', medie_datas["capacity_min"], medie_datas["capacity_avg"], medie_datas["capacity_max"], medie_datas["capacity_total"],"Bit Rate")
     #plot_value_trends_c(OUTPUT_FOLDER, transceiver_strategies, 'snr', medie_datas["capacity_min"], medie_datas["capacity_avg"], medie_datas["capacity_max"], medie_datas["capacity_total"], "Bit Rate")
-    plot_value_trends(OUTPUT_FOLDER, transceiver_strategies, 'latency', medie_datas["gsnr_min"], medie_datas["gsnr_avg"], medie_datas["gsnr_max"], "GSNR")
-    plot_value_trends(OUTPUT_FOLDER, transceiver_strategies, 'snr', medie_datas["gsnr_min"], medie_datas["gsnr_avg"], medie_datas["gsnr_max"], "GSNR")
+    plot_value_trends(OUTPUT_FOLDER, transceiver_strategies, 'latency', medie_datas["gsnr_min"], medie_datas["gsnr_avg"], medie_datas["gsnr_max"], "GSNR", "dB")
+    plot_value_trends(OUTPUT_FOLDER, transceiver_strategies, 'snr', medie_datas["gsnr_min"], medie_datas["gsnr_avg"], medie_datas["gsnr_max"], "GSNR", "dB")
 
-    plot_value_trends(OUTPUT_FOLDER, transceiver_strategies, 'latency', medie_datas["capacity_min"], medie_datas["capacity_avg"], medie_datas["capacity_max"],  "Bit Rate")
-    plot_value_trends(OUTPUT_FOLDER, transceiver_strategies, 'snr', medie_datas["capacity_min"], medie_datas["capacity_avg"], medie_datas["capacity_max"], "Bit Rate")
+    plot_value_trends(OUTPUT_FOLDER, transceiver_strategies, 'latency', medie_datas["capacity_min"], medie_datas["capacity_avg"], medie_datas["capacity_max"],  "Bit Rate", "Gbps")
+    plot_value_trends(OUTPUT_FOLDER, transceiver_strategies, 'snr', medie_datas["capacity_min"], medie_datas["capacity_avg"], medie_datas["capacity_max"], "Bit Rate", "Gbps")
 
-    plot_value_trends_o(OUTPUT_FOLDER, transceiver_strategies, 'latency', medie_datas['capacity_total'],'Capacity total')
-    plot_value_trends_o(OUTPUT_FOLDER, transceiver_strategies, 'snr', medie_datas['capacity_total'],'Capacity total')
+    plot_value_trends_o(OUTPUT_FOLDER, transceiver_strategies, 'latency', medie_datas['capacity_total'],'Capacity total', "Gbps")
+    plot_value_trends_o(OUTPUT_FOLDER, transceiver_strategies, 'snr', medie_datas['capacity_total'],'Capacity total', "Gbps")
 
-    plot_value_trends_o(OUTPUT_FOLDER, transceiver_strategies, 'latency', medie_datas['blocking_percentuals'], 'Blocking event')
-    plot_value_trends_o(OUTPUT_FOLDER, transceiver_strategies, 'snr', medie_datas['blocking_percentuals'],'Blocking event')
+    #plot_value_trends_o(OUTPUT_FOLDER, transceiver_strategies, 'latency', medie_datas['blocking_percentuals'], 'Blocking event')
+    #plot_value_trends_o(OUTPUT_FOLDER, transceiver_strategies, 'snr', medie_datas['blocking_percentuals'],'Blocking event')
 
-    plot_value_trends_o(OUTPUT_FOLDER, transceiver_strategies, 'latency', medie_datas['iters'], 'Iterations')
-    plot_value_trends_o(OUTPUT_FOLDER, transceiver_strategies, 'snr', medie_datas['iters'],'Iterations')
+    #plot_value_trends_o(OUTPUT_FOLDER, transceiver_strategies, 'latency', medie_datas['iters'], 'Iterations')
+    #plot_value_trends_o(OUTPUT_FOLDER, transceiver_strategies, 'snr', medie_datas['iters'],'Iterations')
 
 """
         for metrica, strategie in medie_datas.items():

@@ -1,11 +1,9 @@
 # Use this file to define your generic methods, e.g. for plots
-from core.math_utils import lin2db
-import pandas as pd
-import numpy as np
-from core.elements import *
 import os
 import matplotlib.pyplot as plt
-from scipy.stats import ks_2samp
+import numpy as np
+from core.math_utils import *
+import pandas as pd
 
 def values_computed(network, path, signal_power):
     total_latency=0.0
@@ -69,6 +67,40 @@ def print_subplot(output_folder, transceiver_strategies, path, all_min, all_avg,
     fig1.suptitle(f'Distribution of Values of {label} {unit} in all the simulations ', fontsize=19)
     fig1.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.savefig(os.path.join(output_folder, f'distribution_{label}_{path}.png'))
+    plt.close(fig1)
+
+def print_subplotg(output_folder, transceiver_strategies, path, all_min, all_avg, all_max, label, unit):
+    fig1, axes1 = plt.subplots(3, 3, figsize=(24, 15))
+    for i, strategy in enumerate(transceiver_strategies):
+        df_min = pd.DataFrame(all_min[strategy][path],columns=[label])
+        df_avg = pd.DataFrame(all_avg[strategy][path], columns=[label])
+        df_max = pd.DataFrame(all_max[strategy][path], columns=[label])
+
+        df_min_z = df_min[df_min[label] != 0.0]
+        df_avg_z = df_avg[df_avg[label] != 0.0]
+        df_max_z = df_max[df_max[label] != 0.0]
+
+        axes1[i, 0].hist(np.round(df_min_z[label], decimals=5), bins=15, color='blue', alpha=1)
+        axes1[i, 0].set_title(f'Distribution of minimum values of G{label} for {strategy}')
+        axes1[i, 0].set_xlabel(f'G{label} minimum value {unit}')
+        axes1[i, 0].set_ylabel('Frequency')
+        axes1[i, 0].grid(True)
+
+        axes1[i, 1].hist(np.round(df_avg_z[label], decimals=5), bins=15, color='cyan', alpha=1)
+        axes1[i, 1].set_title(f'Distribution of average values of G{label} for {strategy}')
+        axes1[i, 1].set_xlabel(f'G{label} average value {unit}')
+        axes1[i, 1].set_ylabel('Frequency')
+        axes1[i, 1].grid(True)
+
+        axes1[i, 2].hist(np.round(df_max_z[label], decimals=5), bins=15, color='red', alpha=1)
+        axes1[i, 2].set_title(f'Distribution of maximum values of G{label}  for {strategy}')
+        axes1[i, 2].set_xlabel(f'G{label} maximum value {unit}')
+        axes1[i, 2].set_ylabel('Frequency')
+        axes1[i, 2].grid(True)
+
+    fig1.suptitle(f'Distribution of Values of G{label} {unit} in all the simulations ', fontsize=19)
+    fig1.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.savefig(os.path.join(output_folder, f'distribution_G{label}_{path}.png'))
     plt.close(fig1)
 
 def print_subplot_c(output_folder, transceiver_strategies, path, all_min, all_avg, all_max, label, all_tot):
@@ -227,7 +259,7 @@ def plot_conv(output_folder, transceiver, iterations, lat_means, br_means, snr_m
     plt.figure(figsize=(10, 5))
     plt.plot( lat_means, label='Latency (ms)')
     plt.plot(br_means, label='Bitrate (Mbps)')
-    plt.plot( snr_means, label='SNR (dB)')
+    plt.plot( snr_means, label='GSNR (dB)')
     plt.xlabel('Number of iterations')
     plt.ylabel('Mean')
     plt.title('Convergence of metrics')
@@ -259,7 +291,7 @@ def cumulative_mean_error(iteration, value, path_choice, strategy, value_list):
         value_list.append(value_mean)
         return abs(value_mean - value_mean_act) / abs(value_mean)
 
-def plot_value_trends(output_folder, transceiver_strategies, path, value_min, value_avg, value_max, type):
+def plot_value_trends(output_folder, transceiver_strategies, path, value_min, value_avg, value_max, type, unit):
     fig, axes = plt.subplots(len(transceiver_strategies), 1, figsize=(10, 15), sharex=True)
 
     if len(transceiver_strategies) == 1:
@@ -269,16 +301,18 @@ def plot_value_trends(output_folder, transceiver_strategies, path, value_min, va
         min_values = np.array(value_min[strategy][path])
         avg_values = np.array(value_avg[strategy][path])
         max_values = np.array(value_max[strategy][path])
-        iterations = np.arange(len(min_values))
+        iterations = np.arange(1, len(min_values)+1)
 
         axes[i].plot(iterations, min_values, label=f'{strategy} - Min Value', color='blue', linestyle='dashed', marker='o')
         axes[i].plot(iterations, avg_values, label=f'{strategy} - Avg Value', color='cyan', linestyle='solid', marker='s')
         axes[i].plot(iterations, max_values, label=f'{strategy} - Max Value', color='red', linestyle='dotted', marker='^')
 
         axes[i].set_title(f'{type} Values Evolution for {strategy} - {path}')
-        axes[i].set_ylabel('Values')
+        axes[i].set_ylabel(f'Values {unit}')
         axes[i].legend()
         axes[i].grid(True)
+
+    axes[2].set_xlabel('M')
 
     if isinstance(axes, list):
         axes[-1].set_xlabel('M')
@@ -289,18 +323,18 @@ def plot_value_trends(output_folder, transceiver_strategies, path, value_min, va
     plt.savefig(os.path.join(output_folder, f'Values_of_{type}_trends_{path}.png'))
     plt.show()
 
-def plot_value_trends_o(output_folder, transceiver_strategies, path, value, type):
+def plot_value_trends_o(output_folder, transceiver_strategies, path, value, type, unit):
     colors = ['blue', 'red', 'cyan']
     plt.figure(figsize=(10, 6))
 
     for i, strategy in enumerate(transceiver_strategies):
         values = np.array(value[strategy][path])
-        iterations = np.arange(len(values))
+        iterations = np.arange(1,len(values)+1)
         plt.plot(iterations, values, label=f'{strategy}', linestyle='dashed', marker='o', color=colors[i])
 
     plt.title(f'{type} Values Trends for {path}')
     plt.xlabel('M')
-    plt.ylabel('Values')
+    plt.ylabel(f'Values {unit}')
     plt.legend()
     plt.grid(True)
 

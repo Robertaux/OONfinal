@@ -1,12 +1,12 @@
-import numpy as np
-import matplotlib.pyplot as plt
 import imageio
 import random
-from scipy.special import erfcinv
-from pathlib import Path
+import numpy as np
 from core.elements import *
 import random
-
+import os
+import math
+from core.utils import *
+from pathlib import Path
 
 def db2lin(db):
     #print(db, 10 ** (db / 10))
@@ -24,8 +24,6 @@ class TrafficMatrixSimulator:
     def create_traffic_matrix(self, M):
         num_nodes = len(self.nodes)
         traffic_matrix = np.full((num_nodes, num_nodes), 100 * M, dtype=float)
-
-        # 🔥 Assicuriamoci che ogni connessione abbia almeno un po' di traffico 🔥
         for i in range(num_nodes):
             for j in range(num_nodes):
                 if i != j:
@@ -35,11 +33,11 @@ class TrafficMatrixSimulator:
         return traffic_matrix
 
     def generate_weighted_paths(self):
-        return {f"{i}->{j}": random.uniform(25, 40) for i in self.nodes for j in self.nodes if i != j}
+        return {f"{i}->{j}": random.uniform(19, 28) for i in self.nodes for j in self.nodes if i != j}
 
     def choose_random_connection(self):
         indices = [(i, j) for i in range(len(self.nodes)) for j in range(len(self.nodes))
-                   if i != j and self.traffic_matrix[i, j] > 0]  # 🔥 Solo connessioni attive!
+                   if i != j and self.traffic_matrix[i, j] > 0]
         if not indices:
             return None, None
         return random.choice(indices)
@@ -78,12 +76,12 @@ class TrafficMatrixSimulator:
 
     def update_traffic_matrix(self, source, destination):
         bit_rate = self.calculate_bit_rate_l(source, destination)
-        if bit_rate > 0:
+        if bit_rate >= 0:
         #print(self.traffic_matrix[source][destination], bit_rate * 10 ** (-9))
             self.traffic_matrix[source][destination] -= bit_rate*10**(-9)
             #print(self.traffic_matrix[source][destination])
-            if self.traffic_matrix[source][destination] <= 0:
-                self.traffic_matrix[source][destination] = 0
+            if self.traffic_matrix[source][destination] < 0:
+                self.traffic_matrix[source][destination] += bit_rate*10**(-9)
             return True
         else:
             print("mino")
@@ -111,22 +109,21 @@ class TrafficMatrixSimulator:
     def simulate(self):
         max_iterations = 1500
         iterations = 0
-        used_connections = set()  # 🔥 Per tracciare le connessioni scelte!
+        used_connections = set()
 
         while self.check_traffic_matrix() and iterations < max_iterations:
             self.save_frame()
             source, destination = self.choose_random_connection()
             if source is not None and destination is not None:
-                used_connections.add((source, destination))  # ✅ Registra la connessione usata
+                used_connections.add((source, destination))
                 self.update_traffic_matrix(source, destination)
                 #if not self.update_traffic_matrix(source, destination):
             iterations += 1
         self.save_frame()
 
-        # 🔥 Stampiamo le connessioni mai scelte
         all_connections = {(i, j) for i in range(len(self.nodes)) for j in range(len(self.nodes)) if i != j}
         unused_connections = all_connections - used_connections
-        print(f"Connessioni mai usate: {unused_connections}")  # 🔎 Debug
+        print(f"Connessioni mai usate: {unused_connections}")
 
     def create_gif(self, filename):
         imageio.mimsave(filename, self.frames, duration=0.5)
@@ -135,7 +132,7 @@ class TrafficMatrixSimulator:
 
 nodes = {i: f'Node {i}' for i in range(5)}
 for strategy in ['fixed-rate', 'flex-rate', 'shannon']:
-    simulator = TrafficMatrixSimulator(nodes, M=35, transceiver_strategy=strategy)
+    simulator = TrafficMatrixSimulator(nodes, M=16, transceiver_strategy=strategy)
     simulator.simulate()
-    simulator.create_gif(filename=f'traffic_matrix_{strategy}_changeddd_35.gif')
+    simulator.create_gif(filename=f'traffic_matrix_{strategy}_16w.gif')
     print(f"{strategy} is done")
